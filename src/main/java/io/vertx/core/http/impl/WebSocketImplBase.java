@@ -17,6 +17,8 @@
 package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
@@ -56,6 +58,7 @@ public abstract class WebSocketImplBase implements WebSocketBase {
   protected Handler<Void> closeHandler;
   protected Handler<Void> endHandler;
   protected boolean closed;
+  private CompositeByteBuf wsFramesCollector;
 
   protected WebSocketImplBase(VertxInternal vertx, ConnectionBase conn, boolean supportsContinuation,
                               int maxWebSocketFrameSize) {
@@ -68,6 +71,7 @@ public abstract class WebSocketImplBase implements WebSocketBase {
     Handler<Message<String>> textHandler = msg -> writeTextFrameInternal(msg.body());
     textHandlerRegistration = vertx.eventBus().<String>localConsumer(textHandlerID).handler(textHandler);
     this.maxWebSocketFrameSize = maxWebSocketFrameSize;
+    wsFramesCollector = Unpooled.compositeBuffer();
   }
 
   public String binaryHandlerID() {
@@ -162,8 +166,22 @@ public abstract class WebSocketImplBase implements WebSocketBase {
     synchronized (conn) {
       conn.reportBytesRead(frame.binaryData().length());
       if (dataHandler != null) {
-        Buffer buff = Buffer.buffer(frame.getBinaryData());
-        dataHandler.handle(buff);
+        switch (frame.type()) {
+          case PING:
+          case PONG:
+          case CLOSE:
+          case TEXT:
+          case BINARY:
+            wsFramesCollector.clear();
+            wsFramesCollector.removeComponents(0, wsFramesCollector.numComponents());
+          case CONTINUATION:
+            wsFramesCollector.addComponent(frame.getBinaryData());
+        }
+        if (frame.isFinal()) {
+          wsFramesCollector.writerIndex(wsFramesCollector.capacity());
+          Buffer buff = Buffer.buffer(wsFramesCollector);
+          dataHandler.handle(buff);
+        }
       }
 
       if (frameHandler != null) {
