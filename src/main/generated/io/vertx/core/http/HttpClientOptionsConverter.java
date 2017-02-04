@@ -86,6 +86,9 @@ public class HttpClientOptionsConverter {
     if (json.getValue("protocolVersion") instanceof String) {
       obj.setProtocolVersion(io.vertx.core.http.HttpVersion.valueOf((String)json.getValue("protocolVersion")));
     }
+    if (json.getValue("sendUnmaskedFrames") instanceof Boolean) {
+      obj.setSendUnmaskedFrames((Boolean)json.getValue("sendUnmaskedFrames"));
+    }
     if (json.getValue("tryUseCompression") instanceof Boolean) {
       obj.setTryUseCompression((Boolean)json.getValue("tryUseCompression"));
     }
@@ -96,11 +99,9 @@ public class HttpClientOptionsConverter {
 
   public static void toJson(HttpClientOptions obj, JsonObject json) {
     if (obj.getAlpnVersions() != null) {
-      json.put("alpnVersions", new JsonArray(
-          obj.getAlpnVersions().
-              stream().
-              map(item -> item.name()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAlpnVersions().forEach(item -> array.add(item.name()));
+      json.put("alpnVersions", array);
     }
     if (obj.getDefaultHost() != null) {
       json.put("defaultHost", obj.getDefaultHost());
@@ -125,6 +126,7 @@ public class HttpClientOptionsConverter {
     if (obj.getProtocolVersion() != null) {
       json.put("protocolVersion", obj.getProtocolVersion().name());
     }
+    json.put("sendUnmaskedFrames", obj.isSendUnmaskedFrames());
     json.put("tryUseCompression", obj.isTryUseCompression());
     json.put("verifyHost", obj.isVerifyHost());
   }

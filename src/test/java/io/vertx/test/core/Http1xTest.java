@@ -17,7 +17,6 @@
 package io.vertx.test.core;
 
 import io.netty.handler.codec.TooLongFrameException;
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.vertx.core.*;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.*;
@@ -239,6 +238,11 @@ public class Http1xTest extends HttpTest {
     assertEquals(false, options.isHttp2ClearTextUpgrade());
 
     assertEquals(null, options.getLocalAddress());
+
+
+    assertEquals(false,options.isSendUnmaskedFrames());
+    assertEquals(options,options.setSendUnmaskedFrames(true));
+    assertEquals(true,options.isSendUnmaskedFrames());
   }
 
   @Test
@@ -428,6 +432,7 @@ public class Http1xTest extends HttpTest {
     List<HttpVersion> alpnVersions = Collections.singletonList(HttpVersion.values()[TestUtils.randomPositiveInt() % 3]);
     boolean h2cUpgrade = TestUtils.randomBoolean();
     boolean openSslSessionCacheEnabled = rand.nextBoolean();
+    boolean sendUnmaskedFrame = rand.nextBoolean();
     String localAddress = TestUtils.randomAlphaString(10);
 
     options.setSendBufferSize(sendBufferSize);
@@ -467,6 +472,7 @@ public class Http1xTest extends HttpTest {
     options.setAlpnVersions(alpnVersions);
     options.setHttp2ClearTextUpgrade(h2cUpgrade);
     options.setLocalAddress(localAddress);
+    options.setSendUnmaskedFrames(sendUnmaskedFrame);
     HttpClientOptions copy = new HttpClientOptions(options);
     assertEquals(sendBufferSize, copy.getSendBufferSize());
     assertEquals(receiverBufferSize, copy.getReceiveBufferSize());
@@ -510,6 +516,7 @@ public class Http1xTest extends HttpTest {
     assertEquals(alpnVersions, copy.getAlpnVersions());
     assertEquals(h2cUpgrade, copy.isHttp2ClearTextUpgrade());
     assertEquals(localAddress, copy.getLocalAddress());
+    assertEquals(sendUnmaskedFrame, copy.isSendUnmaskedFrames());
   }
 
   @Test
@@ -755,6 +762,8 @@ public class Http1xTest extends HttpTest {
     SSLEngineOptions sslEngine = TestUtils.randomBoolean() ? new JdkSSLEngineOptions() : new OpenSSLEngineOptions();
     List<HttpVersion> alpnVersions = Collections.singletonList(HttpVersion.values()[TestUtils.randomPositiveInt() % 3]);
     boolean decompressionSupported = rand.nextBoolean();
+    boolean acceptUnmaskedFrames = rand.nextBoolean();
+
     options.setSendBufferSize(sendBufferSize);
     options.setReceiveBufferSize(receiverBufferSize);
     options.setReuseAddress(reuseAddress);
@@ -784,6 +793,8 @@ public class Http1xTest extends HttpTest {
     options.setInitialSettings(initialSettings);
     options.setAlpnVersions(alpnVersions);
     options.setDecompressionSupported(decompressionSupported);
+    options.setAcceptUnmaskedFrames(acceptUnmaskedFrames);
+
     HttpServerOptions copy = new HttpServerOptions(options);
     assertEquals(sendBufferSize, copy.getSendBufferSize());
     assertEquals(receiverBufferSize, copy.getReceiveBufferSize());
@@ -819,6 +830,7 @@ public class Http1xTest extends HttpTest {
     assertEquals(sslEngine, copy.getSslEngineOptions());
     assertEquals(alpnVersions, copy.getAlpnVersions());
     assertEquals(decompressionSupported, copy.isDecompressionSupported());
+    assertEquals(acceptUnmaskedFrames, copy.isAcceptUnmaskedFrames());
   }
 
   @Test
@@ -849,6 +861,7 @@ public class Http1xTest extends HttpTest {
     assertEquals(def.getAlpnVersions(), json.getAlpnVersions());
     assertEquals(def.getHttp2ConnectionWindowSize(), json.getHttp2ConnectionWindowSize());
     assertEquals(def.isDecompressionSupported(), json.isDecompressionSupported());
+    assertEquals(def.isAcceptUnmaskedFrames(), json.isAcceptUnmaskedFrames());
   }
 
   @Test
@@ -894,6 +907,7 @@ public class Http1xTest extends HttpTest {
     List<HttpVersion> alpnVersions = Collections.singletonList(HttpVersion.values()[TestUtils.randomPositiveInt() % 3]);
     boolean openSslSessionCacheEnabled = TestUtils.randomBoolean();
     boolean decompressionSupported = TestUtils.randomBoolean();
+    boolean acceptUnmaskedFrames = TestUtils.randomBoolean();
 
     JsonObject json = new JsonObject();
     json.put("sendBufferSize", sendBufferSize)
@@ -933,7 +947,8 @@ public class Http1xTest extends HttpTest {
       .put(sslEngine, new JsonObject())
       .put("alpnVersions", new JsonArray().add(alpnVersions.get(0).name()))
       .put("openSslSessionCacheEnabled", openSslSessionCacheEnabled)
-      .put("decompressionSupported", decompressionSupported);
+      .put("decompressionSupported", decompressionSupported)
+      .put("acceptUnmaskedFrames", acceptUnmaskedFrames);
 
     HttpServerOptions options = new HttpServerOptions(json);
     assertEquals(sendBufferSize, options.getSendBufferSize());
@@ -982,6 +997,7 @@ public class Http1xTest extends HttpTest {
     }
     assertEquals(alpnVersions, options.getAlpnVersions());
     assertEquals(decompressionSupported, options.isDecompressionSupported());
+    assertEquals(acceptUnmaskedFrames, options.isAcceptUnmaskedFrames());
 
     // Test other keystore/truststore types
     json.remove("keyStoreOptions");
@@ -1983,15 +1999,14 @@ public class Http1xTest extends HttpTest {
     new Random().nextBytes(data);
     Buffer buffer = Buffer.buffer(data);
     Buffer readBuffer = Buffer.buffer(64 * 1024 * 1024);
-    HttpServer httpServer = vertx.createHttpServer();
-    httpServer.requestHandler(request -> {
+    server.requestHandler(request -> {
       request.response().setChunked(true);
       for (int i = 0; i < buffer.length() / 8192; i++) {
         request.response().write(buffer.slice(i * 8192, (i + 1) * 8192));
       }
       request.response().end();
     });
-    httpServer.listen(10000);
+    server.listen(10000);
     HttpClient httpClient = vertx.createHttpClient();
     HttpClientRequest clientRequest = httpClient.get(10000, "localhost", "/");
     clientRequest.handler(resp -> {
@@ -2023,8 +2038,7 @@ public class Http1xTest extends HttpTest {
   public void testMultipleRecursiveCallsAndPipelining() throws Exception {
     int sendRequests = 100;
     AtomicInteger receivedRequests = new AtomicInteger();
-    vertx.createHttpServer()
-      .requestHandler(x -> {
+    server.requestHandler(x -> {
         x.response().end("hello");
       })
       .listen(8080, r -> {
@@ -2057,7 +2071,7 @@ public class Http1xTest extends HttpTest {
   }
 
   private void testUnsupported(String rawReq, boolean method) throws Exception {
-    vertx.createHttpServer()
+    server
       .requestHandler(req -> {
         try {
           if (method) {
@@ -2095,7 +2109,7 @@ public class Http1xTest extends HttpTest {
     CountDownLatch latch1 = new CountDownLatch(2);
     AtomicInteger server1Count = new AtomicInteger();
     AtomicInteger server2Count = new AtomicInteger();
-    vertx.createHttpServer().requestHandler(req -> {
+    server.requestHandler(req -> {
       server1Count.incrementAndGet();
       req.response().end();
     }).listen(8080, onSuccess(s -> {
@@ -2371,7 +2385,7 @@ public class Http1xTest extends HttpTest {
     client.close();
     client = vertx.createHttpClient(new HttpClientOptions().setPipelining(true).setKeepAlive(true).setMaxPoolSize(1));
     List<HttpServerRequest> received = new ArrayList<>();
-    vertx.createHttpServer().requestHandler(r -> {
+    server.requestHandler(r -> {
       // Generate an invalid response for the pipe-lined
       r.response().setChunked(true).setStatusCode(204).end();
     }).listen(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, onSuccess(v1 -> {

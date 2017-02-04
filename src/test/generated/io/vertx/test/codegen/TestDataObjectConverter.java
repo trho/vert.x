@@ -382,6 +382,96 @@ public class TestDataObjectConverter {
       });
       obj.setJsonObjects(list);
     }
+    if (json.getValue("keyedBoxedBooleanValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedBooleanValues").forEach(entry -> {
+        if (entry.getValue() instanceof Boolean)
+          obj.addKeyedBoxedBooleanValue(entry.getKey(), (Boolean)entry.getValue());
+      });
+    }
+    if (json.getValue("keyedBoxedByteValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedByteValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedByteValue(entry.getKey(), ((Number)entry.getValue()).byteValue());
+      });
+    }
+    if (json.getValue("keyedBoxedCharValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedCharValues").forEach(entry -> {
+        if (entry.getValue() instanceof String)
+          obj.addKeyedBoxedCharValue(entry.getKey(), ((String)entry.getValue()).charAt(0));
+      });
+    }
+    if (json.getValue("keyedBoxedDoubleValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedDoubleValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedDoubleValue(entry.getKey(), ((Number)entry.getValue()).doubleValue());
+      });
+    }
+    if (json.getValue("keyedBoxedFloatValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedFloatValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedFloatValue(entry.getKey(), ((Number)entry.getValue()).floatValue());
+      });
+    }
+    if (json.getValue("keyedBoxedIntValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedIntValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedIntValue(entry.getKey(), ((Number)entry.getValue()).intValue());
+      });
+    }
+    if (json.getValue("keyedBoxedLongValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedLongValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedLongValue(entry.getKey(), ((Number)entry.getValue()).longValue());
+      });
+    }
+    if (json.getValue("keyedBoxedShortValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBoxedShortValues").forEach(entry -> {
+        if (entry.getValue() instanceof Number)
+          obj.addKeyedBoxedShortValue(entry.getKey(), ((Number)entry.getValue()).shortValue());
+      });
+    }
+    if (json.getValue("keyedBufferValues") instanceof JsonObject) {
+      json.getJsonObject("keyedBufferValues").forEach(entry -> {
+        if (entry.getValue() instanceof String)
+          obj.addKeyedBufferValue(entry.getKey(), io.vertx.core.buffer.Buffer.buffer(java.util.Base64.getDecoder().decode((String)entry.getValue())));
+      });
+    }
+    if (json.getValue("keyedDataObjectValues") instanceof JsonObject) {
+      json.getJsonObject("keyedDataObjectValues").forEach(entry -> {
+        if (entry.getValue() instanceof JsonObject)
+          obj.addKeyedDataObjectValue(entry.getKey(), new io.vertx.test.codegen.AggregatedDataObject((JsonObject)entry.getValue()));
+      });
+    }
+    if (json.getValue("keyedEnumValues") instanceof JsonObject) {
+      json.getJsonObject("keyedEnumValues").forEach(entry -> {
+        if (entry.getValue() instanceof String)
+          obj.addKeyedEnumValue(entry.getKey(), io.vertx.core.http.HttpMethod.valueOf((String)entry.getValue()));
+      });
+    }
+    if (json.getValue("keyedJsonArrayValues") instanceof JsonObject) {
+      json.getJsonObject("keyedJsonArrayValues").forEach(entry -> {
+        if (entry.getValue() instanceof JsonArray)
+          obj.addKeyedJsonArrayValue(entry.getKey(), ((JsonArray)entry.getValue()).copy());
+      });
+    }
+    if (json.getValue("keyedJsonObjectValues") instanceof JsonObject) {
+      json.getJsonObject("keyedJsonObjectValues").forEach(entry -> {
+        if (entry.getValue() instanceof JsonObject)
+          obj.addKeyedJsonObjectValue(entry.getKey(), ((JsonObject)entry.getValue()).copy());
+      });
+    }
+    if (json.getValue("keyedObjectValues") instanceof JsonObject) {
+      json.getJsonObject("keyedObjectValues").forEach(entry -> {
+        if (entry.getValue() instanceof Object)
+          obj.addKeyedObjectValue(entry.getKey(), entry.getValue());
+      });
+    }
+    if (json.getValue("keyedStringValues") instanceof JsonObject) {
+      json.getJsonObject("keyedStringValues").forEach(entry -> {
+        if (entry.getValue() instanceof String)
+          obj.addKeyedStringValue(entry.getKey(), (String)entry.getValue());
+      });
+    }
     if (json.getValue("longValue") instanceof Number) {
       obj.setLongValue(((Number)json.getValue("longValue")).longValue());
     }
@@ -427,109 +517,79 @@ public class TestDataObjectConverter {
 
   public static void toJson(TestDataObject obj, JsonObject json) {
     if (obj.getAddedAggregatedDataObjects() != null) {
-      json.put("addedAggregatedDataObjects", new JsonArray(
-          obj.getAddedAggregatedDataObjects().
-              stream().
-              map(item -> item.toJson()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedAggregatedDataObjects().forEach(item -> array.add(item.toJson()));
+      json.put("addedAggregatedDataObjects", array);
     }
     if (obj.getAddedBoxedBooleanValues() != null) {
-      json.put("addedBoxedBooleanValues", new JsonArray(
-          obj.getAddedBoxedBooleanValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedBooleanValues().forEach(item -> array.add(item));
+      json.put("addedBoxedBooleanValues", array);
     }
     if (obj.getAddedBoxedByteValues() != null) {
-      json.put("addedBoxedByteValues", new JsonArray(
-          obj.getAddedBoxedByteValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedByteValues().forEach(item -> array.add(item));
+      json.put("addedBoxedByteValues", array);
     }
     if (obj.getAddedBoxedCharValues() != null) {
-      json.put("addedBoxedCharValues", new JsonArray(
-          obj.getAddedBoxedCharValues().
-              stream().
-              map(item -> Character.toString(item)).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedCharValues().forEach(item -> array.add(Character.toString(item)));
+      json.put("addedBoxedCharValues", array);
     }
     if (obj.getAddedBoxedDoubleValues() != null) {
-      json.put("addedBoxedDoubleValues", new JsonArray(
-          obj.getAddedBoxedDoubleValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedDoubleValues().forEach(item -> array.add(item));
+      json.put("addedBoxedDoubleValues", array);
     }
     if (obj.getAddedBoxedFloatValues() != null) {
-      json.put("addedBoxedFloatValues", new JsonArray(
-          obj.getAddedBoxedFloatValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedFloatValues().forEach(item -> array.add(item));
+      json.put("addedBoxedFloatValues", array);
     }
     if (obj.getAddedBoxedIntValues() != null) {
-      json.put("addedBoxedIntValues", new JsonArray(
-          obj.getAddedBoxedIntValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedIntValues().forEach(item -> array.add(item));
+      json.put("addedBoxedIntValues", array);
     }
     if (obj.getAddedBoxedLongValues() != null) {
-      json.put("addedBoxedLongValues", new JsonArray(
-          obj.getAddedBoxedLongValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedLongValues().forEach(item -> array.add(item));
+      json.put("addedBoxedLongValues", array);
     }
     if (obj.getAddedBoxedShortValues() != null) {
-      json.put("addedBoxedShortValues", new JsonArray(
-          obj.getAddedBoxedShortValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBoxedShortValues().forEach(item -> array.add(item));
+      json.put("addedBoxedShortValues", array);
     }
     if (obj.getAddedBuffers() != null) {
-      json.put("addedBuffers", new JsonArray(
-          obj.getAddedBuffers().
-              stream().
-              map(item -> item.getBytes()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedBuffers().forEach(item -> array.add(item.getBytes()));
+      json.put("addedBuffers", array);
     }
     if (obj.getAddedHttpMethods() != null) {
-      json.put("addedHttpMethods", new JsonArray(
-          obj.getAddedHttpMethods().
-              stream().
-              map(item -> item.name()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedHttpMethods().forEach(item -> array.add(item.name()));
+      json.put("addedHttpMethods", array);
     }
     if (obj.getAddedJsonArrays() != null) {
-      json.put("addedJsonArrays", new JsonArray(
-          obj.getAddedJsonArrays().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedJsonArrays().forEach(item -> array.add(item));
+      json.put("addedJsonArrays", array);
     }
     if (obj.getAddedJsonObjects() != null) {
-      json.put("addedJsonObjects", new JsonArray(
-          obj.getAddedJsonObjects().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedJsonObjects().forEach(item -> array.add(item));
+      json.put("addedJsonObjects", array);
     }
     if (obj.getAddedObjects() != null) {
-      json.put("addedObjects", new JsonArray(
-          obj.getAddedObjects().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedObjects().forEach(item -> array.add(item));
+      json.put("addedObjects", array);
     }
     if (obj.getAddedStringValues() != null) {
-      json.put("addedStringValues", new JsonArray(
-          obj.getAddedStringValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAddedStringValues().forEach(item -> array.add(item));
+      json.put("addedStringValues", array);
     }
     if (obj.getAggregatedDataObject() != null) {
       json.put("aggregatedDataObject", obj.getAggregatedDataObject().toJson());
@@ -540,11 +600,9 @@ public class TestDataObjectConverter {
       json.put("aggregatedDataObjectMap", map);
     }
     if (obj.getAggregatedDataObjects() != null) {
-      json.put("aggregatedDataObjects", new JsonArray(
-          obj.getAggregatedDataObjects().
-              stream().
-              map(item -> item.toJson()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getAggregatedDataObjects().forEach(item -> array.add(item.toJson()));
+      json.put("aggregatedDataObjects", array);
     }
     json.put("booleanValue", obj.isBooleanValue());
     if (obj.isBoxedBooleanValue() != null) {
@@ -556,11 +614,9 @@ public class TestDataObjectConverter {
       json.put("boxedBooleanValueMap", map);
     }
     if (obj.getBoxedBooleanValues() != null) {
-      json.put("boxedBooleanValues", new JsonArray(
-          obj.getBoxedBooleanValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedBooleanValues().forEach(item -> array.add(item));
+      json.put("boxedBooleanValues", array);
     }
     if (obj.getBoxedByteValue() != null) {
       json.put("boxedByteValue", obj.getBoxedByteValue());
@@ -571,11 +627,9 @@ public class TestDataObjectConverter {
       json.put("boxedByteValueMap", map);
     }
     if (obj.getBoxedByteValues() != null) {
-      json.put("boxedByteValues", new JsonArray(
-          obj.getBoxedByteValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedByteValues().forEach(item -> array.add(item));
+      json.put("boxedByteValues", array);
     }
     if (obj.getBoxedCharValue() != null) {
       json.put("boxedCharValue", Character.toString(obj.getBoxedCharValue()));
@@ -586,11 +640,9 @@ public class TestDataObjectConverter {
       json.put("boxedCharValueMap", map);
     }
     if (obj.getBoxedCharValues() != null) {
-      json.put("boxedCharValues", new JsonArray(
-          obj.getBoxedCharValues().
-              stream().
-              map(item -> Character.toString(item)).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedCharValues().forEach(item -> array.add(Character.toString(item)));
+      json.put("boxedCharValues", array);
     }
     if (obj.getBoxedDoubleValue() != null) {
       json.put("boxedDoubleValue", obj.getBoxedDoubleValue());
@@ -601,11 +653,9 @@ public class TestDataObjectConverter {
       json.put("boxedDoubleValueMap", map);
     }
     if (obj.getBoxedDoubleValues() != null) {
-      json.put("boxedDoubleValues", new JsonArray(
-          obj.getBoxedDoubleValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedDoubleValues().forEach(item -> array.add(item));
+      json.put("boxedDoubleValues", array);
     }
     if (obj.getBoxedFloatValue() != null) {
       json.put("boxedFloatValue", obj.getBoxedFloatValue());
@@ -616,11 +666,9 @@ public class TestDataObjectConverter {
       json.put("boxedFloatValueMap", map);
     }
     if (obj.getBoxedFloatValues() != null) {
-      json.put("boxedFloatValues", new JsonArray(
-          obj.getBoxedFloatValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedFloatValues().forEach(item -> array.add(item));
+      json.put("boxedFloatValues", array);
     }
     if (obj.getBoxedIntValue() != null) {
       json.put("boxedIntValue", obj.getBoxedIntValue());
@@ -631,11 +679,9 @@ public class TestDataObjectConverter {
       json.put("boxedIntValueMap", map);
     }
     if (obj.getBoxedIntValues() != null) {
-      json.put("boxedIntValues", new JsonArray(
-          obj.getBoxedIntValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedIntValues().forEach(item -> array.add(item));
+      json.put("boxedIntValues", array);
     }
     if (obj.getBoxedLongValue() != null) {
       json.put("boxedLongValue", obj.getBoxedLongValue());
@@ -646,11 +692,9 @@ public class TestDataObjectConverter {
       json.put("boxedLongValueMap", map);
     }
     if (obj.getBoxedLongValues() != null) {
-      json.put("boxedLongValues", new JsonArray(
-          obj.getBoxedLongValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedLongValues().forEach(item -> array.add(item));
+      json.put("boxedLongValues", array);
     }
     if (obj.getBoxedShortValue() != null) {
       json.put("boxedShortValue", obj.getBoxedShortValue());
@@ -661,11 +705,9 @@ public class TestDataObjectConverter {
       json.put("boxedShortValueMap", map);
     }
     if (obj.getBoxedShortValues() != null) {
-      json.put("boxedShortValues", new JsonArray(
-          obj.getBoxedShortValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBoxedShortValues().forEach(item -> array.add(item));
+      json.put("boxedShortValues", array);
     }
     if (obj.getBuffer() != null) {
       json.put("buffer", obj.getBuffer().getBytes());
@@ -676,11 +718,9 @@ public class TestDataObjectConverter {
       json.put("bufferMap", map);
     }
     if (obj.getBuffers() != null) {
-      json.put("buffers", new JsonArray(
-          obj.getBuffers().
-              stream().
-              map(item -> item.getBytes()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getBuffers().forEach(item -> array.add(item.getBytes()));
+      json.put("buffers", array);
     }
     json.put("byteValue", obj.getByteValue());
     json.put("charValue", Character.toString(obj.getCharValue()));
@@ -695,11 +735,9 @@ public class TestDataObjectConverter {
       json.put("httpMethodMap", map);
     }
     if (obj.getHttpMethods() != null) {
-      json.put("httpMethods", new JsonArray(
-          obj.getHttpMethods().
-              stream().
-              map(item -> item.name()).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getHttpMethods().forEach(item -> array.add(item.name()));
+      json.put("httpMethods", array);
     }
     json.put("intValue", obj.getIntValue());
     if (obj.getJsonArray() != null) {
@@ -711,11 +749,9 @@ public class TestDataObjectConverter {
       json.put("jsonArrayMap", map);
     }
     if (obj.getJsonArrays() != null) {
-      json.put("jsonArrays", new JsonArray(
-          obj.getJsonArrays().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getJsonArrays().forEach(item -> array.add(item));
+      json.put("jsonArrays", array);
     }
     if (obj.getJsonObject() != null) {
       json.put("jsonObject", obj.getJsonObject());
@@ -726,11 +762,84 @@ public class TestDataObjectConverter {
       json.put("jsonObjectMap", map);
     }
     if (obj.getJsonObjects() != null) {
-      json.put("jsonObjects", new JsonArray(
-          obj.getJsonObjects().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getJsonObjects().forEach(item -> array.add(item));
+      json.put("jsonObjects", array);
+    }
+    if (obj.getKeyedBoxedBooleanValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedBooleanValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedBooleanValues", map);
+    }
+    if (obj.getKeyedBoxedByteValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedByteValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedByteValues", map);
+    }
+    if (obj.getKeyedBoxedCharValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedCharValues().forEach((key,value) -> map.put(key, Character.toString(value)));
+      json.put("keyedBoxedCharValues", map);
+    }
+    if (obj.getKeyedBoxedDoubleValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedDoubleValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedDoubleValues", map);
+    }
+    if (obj.getKeyedBoxedFloatValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedFloatValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedFloatValues", map);
+    }
+    if (obj.getKeyedBoxedIntValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedIntValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedIntValues", map);
+    }
+    if (obj.getKeyedBoxedLongValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedLongValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedLongValues", map);
+    }
+    if (obj.getKeyedBoxedShortValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBoxedShortValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedBoxedShortValues", map);
+    }
+    if (obj.getKeyedBufferValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedBufferValues().forEach((key,value) -> map.put(key, value.getBytes()));
+      json.put("keyedBufferValues", map);
+    }
+    if (obj.getKeyedDataObjectValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedDataObjectValues().forEach((key,value) -> map.put(key, value.toJson()));
+      json.put("keyedDataObjectValues", map);
+    }
+    if (obj.getKeyedEnumValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedEnumValues().forEach((key,value) -> map.put(key, value.name()));
+      json.put("keyedEnumValues", map);
+    }
+    if (obj.getKeyedJsonArrayValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedJsonArrayValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedJsonArrayValues", map);
+    }
+    if (obj.getKeyedJsonObjectValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedJsonObjectValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedJsonObjectValues", map);
+    }
+    if (obj.getKeyedObjectValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedObjectValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedObjectValues", map);
+    }
+    if (obj.getKeyedStringValues() != null) {
+      JsonObject map = new JsonObject();
+      obj.getKeyedStringValues().forEach((key,value) -> map.put(key, value));
+      json.put("keyedStringValues", map);
     }
     json.put("longValue", obj.getLongValue());
     if (obj.getObjectMap() != null) {
@@ -739,11 +848,9 @@ public class TestDataObjectConverter {
       json.put("objectMap", map);
     }
     if (obj.getObjects() != null) {
-      json.put("objects", new JsonArray(
-          obj.getObjects().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getObjects().forEach(item -> array.add(item));
+      json.put("objects", array);
     }
     json.put("shortValue", obj.getShortValue());
     if (obj.getStringValue() != null) {
@@ -755,11 +862,9 @@ public class TestDataObjectConverter {
       json.put("stringValueMap", map);
     }
     if (obj.getStringValues() != null) {
-      json.put("stringValues", new JsonArray(
-          obj.getStringValues().
-              stream().
-              map(item -> item).
-              collect(java.util.stream.Collectors.toList())));
+      JsonArray array = new JsonArray();
+      obj.getStringValues().forEach(item -> array.add(item));
+      json.put("stringValues", array);
     }
   }
 }
