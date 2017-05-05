@@ -62,7 +62,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
     if (timeout != -1) {
       timeoutID = vertx.setTimer(timeout, tid -> {
         metrics.replyFailure(address, ReplyFailure.TIMEOUT);
-        sendAsyncResultFailure(ReplyFailure.TIMEOUT, "Timed out after waiting " + timeout + "(ms) for a reply. address: " + address);
+        sendAsyncResultFailure(ReplyFailure.TIMEOUT, "Timed out after waiting " + timeout + "(ms) for a reply. address: " + address + ", repliedAddress: " + repliedAddress);
       });
     }
   }
@@ -176,7 +176,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
           if (discardHandler != null) {
             discardHandler.handle(message);
           } else {
-            log.warn("Discarding message as more than " + maxBufferedMessages + " buffered in paused consumer");
+            log.warn("Discarding message as more than " + maxBufferedMessages + " buffered in paused consumer. address: " + address);
           }
         }
         return;
@@ -212,7 +212,7 @@ public class HandlerRegistration<T> implements MessageConsumer<T>, Handler<Messa
       theHandler.handle(message);
       metrics.endHandleMessage(metric, null);
     } catch (Exception e) {
-      log.error("Failed to handleMessage", e);
+      log.error("Failed to handleMessage. address: " + message.address(), e);
       metrics.endHandleMessage(metric, e);
       throw e;
     }

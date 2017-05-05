@@ -18,6 +18,7 @@ package io.vertx.core.http;
 
 import io.vertx.codegen.annotations.CacheReturn;
 import io.vertx.codegen.annotations.Fluent;
+import io.vertx.codegen.annotations.GenIgnore;
 import io.vertx.codegen.annotations.Nullable;
 import io.vertx.codegen.annotations.VertxGen;
 import io.vertx.core.Handler;
@@ -25,6 +26,9 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.net.SocketAddress;
 import io.vertx.core.streams.ReadStream;
 import io.vertx.core.streams.WriteStream;
+
+import javax.net.ssl.SSLPeerUnverifiedException;
+import javax.security.cert.X509Certificate;
 
 /**
  * Base WebSocket implementation.
@@ -121,6 +125,16 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
   WebSocketBase writeBinaryMessage(Buffer data);
 
   /**
+   * Writes a (potentially large) piece of text data to the connection. This data might be written as multiple frames
+   * if it exceeds the maximum WebSocket frame size.
+   *
+   * @param text  the data to write
+   * @return a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  WebSocketBase writeTextMessage(String text);
+
+  /**
    * Set a close handler. This will be called when the WebSocket is closed.
    *
    * @param handler  the handler
@@ -137,6 +151,27 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
    */
   @Fluent
   WebSocketBase frameHandler(@Nullable Handler<WebSocketFrame> handler);
+
+  /**
+   * Set a text message handler on the connection. This handler will be called similar to the
+   * {@link #binaryMessageHandler(Handler)}, but the buffer will be converted to a String first
+   *
+   * @param handler the handler
+   * @return a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  WebSocketBase textMessageHandler(@Nullable Handler<String> handler);
+
+  /**
+   * Set a binary message handler on the connection. This handler serves a similar purpose to {@link #handler(Handler)}
+   * except that if a message comes into the socket in multiple frames, the data from the frames will be aggregated
+   * into a single buffer before calling the handler (using {@link WebSocketFrame#isFinal()} to find the boundaries).
+   *
+   * @param handler the handler
+   * @return a reference to this, so the API can be used fluently
+   */
+  @Fluent
+  WebSocketBase binaryMessageHandler(@Nullable Handler<Buffer> handler);
 
   /**
    * Calls {@link #close()}
@@ -161,4 +196,16 @@ public interface WebSocketBase extends ReadStream<Buffer>, WriteStream<Buffer> {
   @CacheReturn
   SocketAddress localAddress();
 
+  /**
+   * @return true if this {@link io.vertx.core.http.HttpConnection} is encrypted via SSL/TLS.
+   */
+  boolean isSsl();
+
+  /**
+   * @return an array of the peer certificates. Returns null if connection is
+   *         not SSL.
+   * @throws javax.net.ssl.SSLPeerUnverifiedException SSL peer's identity has not been verified.
+   */
+  @GenIgnore
+  X509Certificate[] peerCertificateChain() throws SSLPeerUnverifiedException;
 }

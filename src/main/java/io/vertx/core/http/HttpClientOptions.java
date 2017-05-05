@@ -18,18 +18,9 @@ package io.vertx.core.http;
 
 import io.vertx.codegen.annotations.DataObject;
 import io.vertx.core.buffer.Buffer;
+import io.vertx.core.impl.Arguments;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.ClientOptionsBase;
-import io.vertx.core.net.JdkSSLEngineOptions;
-import io.vertx.core.net.JksOptions;
-import io.vertx.core.net.KeyCertOptions;
-import io.vertx.core.net.OpenSSLEngineOptions;
-import io.vertx.core.net.PemKeyCertOptions;
-import io.vertx.core.net.PemTrustOptions;
-import io.vertx.core.net.PfxOptions;
-import io.vertx.core.net.ProxyOptions;
-import io.vertx.core.net.SSLEngineOptions;
-import io.vertx.core.net.TrustOptions;
+import io.vertx.core.net.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -94,6 +85,12 @@ public class HttpClientOptions extends ClientOptionsBase {
   public static final int DEFAULT_MAX_WEBSOCKET_FRAME_SIZE = 65536;
 
   /**
+   * The default value for maximum websocket messages (could be assembled from multiple frames) is 4 full frames
+   * worth of data
+   */
+  public static final int DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE = 65536 * 4;
+
+  /**
    * The default value for host name = "localhost"
    */
   public static final String DEFAULT_DEFAULT_HOST = "localhost";
@@ -143,6 +140,21 @@ public class HttpClientOptions extends ClientOptionsBase {
    */
   public static final boolean DEFAULT_SEND_UNMASKED_FRAMES = false;
 
+  /*
+   * Default max redirect = 16
+   */
+  public static final int DEFAULT_MAX_REDIRECTS = 16;
+
+  /*
+   * Default force SNI = false
+   */
+  public static final boolean DEFAULT_FORCE_SNI = false;
+
+  /**
+   * Default initial buffer size for HttpObjectDecoder = 128 bytes
+   */
+  public static final int DEFAULT_DECODER_INITIAL_BUFFER_SIZE = 128;
+
   private boolean verifyHost = true;
   private int maxPoolSize;
   private boolean keepAlive;
@@ -154,6 +166,7 @@ public class HttpClientOptions extends ClientOptionsBase {
 
   private boolean tryUseCompression;
   private int maxWebsocketFrameSize;
+  private int maxWebsocketMessageSize;
   private String defaultHost;
   private int defaultPort;
   private HttpVersion protocolVersion;
@@ -165,6 +178,9 @@ public class HttpClientOptions extends ClientOptionsBase {
   private List<HttpVersion> alpnVersions;
   private boolean http2ClearTextUpgrade;
   private boolean sendUnmaskedFrames;
+  private int maxRedirects;
+  private boolean forceSni;
+  private int decoderInitialBufferSize;
 
   /**
    * Default constructor
@@ -191,6 +207,7 @@ public class HttpClientOptions extends ClientOptionsBase {
     this.http2ConnectionWindowSize = other.http2ConnectionWindowSize;
     this.tryUseCompression = other.isTryUseCompression();
     this.maxWebsocketFrameSize = other.maxWebsocketFrameSize;
+    this.maxWebsocketMessageSize = other.maxWebsocketMessageSize;
     this.defaultHost = other.defaultHost;
     this.defaultPort = other.defaultPort;
     this.protocolVersion = other.protocolVersion;
@@ -202,6 +219,9 @@ public class HttpClientOptions extends ClientOptionsBase {
     this.alpnVersions = other.alpnVersions != null ? new ArrayList<>(other.alpnVersions) : null;
     this.http2ClearTextUpgrade = other.http2ClearTextUpgrade;
     this.sendUnmaskedFrames = other.isSendUnmaskedFrames();
+    this.maxRedirects = other.maxRedirects;
+    this.forceSni = other.forceSni;
+    this.decoderInitialBufferSize = other.getDecoderInitialBufferSize();
   }
 
   /**
@@ -215,6 +235,17 @@ public class HttpClientOptions extends ClientOptionsBase {
     HttpClientOptionsConverter.fromJson(json, this);
   }
 
+  /**
+   * Convert to JSON
+   *
+   * @return the JSON
+   */
+  public JsonObject toJson() {
+    JsonObject json = super.toJson();
+    HttpClientOptionsConverter.toJson(this, json);
+    return json;
+  }
+
   private void init() {
     verifyHost = DEFAULT_VERIFY_HOST;
     maxPoolSize = DEFAULT_MAX_POOL_SIZE;
@@ -226,6 +257,7 @@ public class HttpClientOptions extends ClientOptionsBase {
     http2ConnectionWindowSize = DEFAULT_HTTP2_CONNECTION_WINDOW_SIZE;
     tryUseCompression = DEFAULT_TRY_USE_COMPRESSION;
     maxWebsocketFrameSize = DEFAULT_MAX_WEBSOCKET_FRAME_SIZE;
+    maxWebsocketMessageSize = DEFAULT_MAX_WEBSOCKET_MESSAGE_SIZE;
     defaultHost = DEFAULT_DEFAULT_HOST;
     defaultPort = DEFAULT_DEFAULT_PORT;
     protocolVersion = DEFAULT_PROTOCOL_VERSION;
@@ -237,6 +269,9 @@ public class HttpClientOptions extends ClientOptionsBase {
     alpnVersions = new ArrayList<>(DEFAULT_ALPN_VERSIONS);
     http2ClearTextUpgrade = DEFAULT_HTTP2_CLEAR_TEXT_UPGRADE;
     sendUnmaskedFrames = DEFAULT_SEND_UNMASKED_FRAMES;
+    maxRedirects = DEFAULT_MAX_REDIRECTS;
+    forceSni = DEFAULT_FORCE_SNI;
+    decoderInitialBufferSize = DEFAULT_DECODER_INITIAL_BUFFER_SIZE;
   }
 
   @Override
@@ -617,6 +652,26 @@ public class HttpClientOptions extends ClientOptionsBase {
   }
 
   /**
+   * Get the maximum websocket message size to use
+   *
+   * @return  the max websocket message size
+   */
+  public int getMaxWebsocketMessageSize() {
+    return maxWebsocketMessageSize;
+  }
+
+  /**
+   * Set the max websocket message size
+   *
+   * @param maxWebsocketMessageSize  the max message size, in bytes
+   * @return a reference to this, so the API can be used fluently
+   */
+  public HttpClientOptions setMaxWebsocketMessageSize(int maxWebsocketMessageSize) {
+    this.maxWebsocketMessageSize = maxWebsocketMessageSize;
+    return this;
+  }
+
+  /**
    * Get the default host name to be used by this client in requests if none is provided when making the request.
    *
    * @return  the default host name
@@ -832,6 +887,43 @@ public class HttpClientOptions extends ClientOptionsBase {
     return this;
   }
 
+  /**
+   * @return the maximum number of redirection a request can follow
+   */
+  public int getMaxRedirects() {
+    return maxRedirects;
+  }
+
+  /**
+   * Set to {@code maxRedirects} the maximum number of redirection a request can follow.
+   *
+   * @param maxRedirects the maximum number of redirection
+   * @return a reference to this, so the API can be used fluently
+   */
+  public HttpClientOptions setMaxRedirects(int maxRedirects) {
+    this.maxRedirects = maxRedirects;
+    return this;
+  }
+
+  /**
+   * @return whether the client should always use SNI on TLS/SSL connections
+   */
+  public boolean isForceSni() {
+    return forceSni;
+  }
+
+  /**
+   * By default, the server name is only sent for Fully Qualified Domain Name (FQDN), setting
+   * this property to {@code true} forces the server name to be always sent.
+   *
+   * @param forceSni true when the client should always use SNI on TLS/SSL connections
+   * @return a reference to this, so the API can be used fluently
+   */
+  public HttpClientOptions setForceSni(boolean forceSni) {
+    this.forceSni = forceSni;
+    return this;
+  }
+
   public HttpClientOptions setMetricsName(String metricsName) {
     return (HttpClientOptions) super.setMetricsName(metricsName);
   }
@@ -850,6 +942,22 @@ public class HttpClientOptions extends ClientOptionsBase {
     return (HttpClientOptions) super.setLogActivity(logEnabled);
   }
 
+  /**
+   * @return the initial buffer size for the HTTP decoder
+   */
+  public int getDecoderInitialBufferSize() { return decoderInitialBufferSize; }
+
+  /**
+   * set to {@code initialBufferSizeHttpDecoder} the initial buffer of the HttpDecoder.
+   * @param decoderInitialBufferSize the initial buffer size
+   * @return a reference to this, so the API can be used fluently
+   */
+  public HttpClientOptions setDecoderInitialBufferSize(int decoderInitialBufferSize) {
+    Arguments.require(decoderInitialBufferSize > 0, "initialBufferSizeHttpDecoder must be > 0");
+    this.decoderInitialBufferSize = decoderInitialBufferSize;
+    return this;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -863,6 +971,7 @@ public class HttpClientOptions extends ClientOptionsBase {
     if (maxPoolSize != that.maxPoolSize) return false;
     if (http2MultiplexingLimit != that.http2MultiplexingLimit) return false;
     if (maxWebsocketFrameSize != that.maxWebsocketFrameSize) return false;
+    if (maxWebsocketMessageSize != that.maxWebsocketMessageSize) return false;
     if (pipelining != that.pipelining) return false;
     if (pipeliningLimit != that.pipeliningLimit) return false;
     if (tryUseCompression != that.tryUseCompression) return false;
@@ -876,6 +985,8 @@ public class HttpClientOptions extends ClientOptionsBase {
     if (http2ClearTextUpgrade != that.http2ClearTextUpgrade) return false;
     if (http2ConnectionWindowSize != that.http2ConnectionWindowSize) return false;
     if (sendUnmaskedFrames != that.sendUnmaskedFrames) return false;
+    if (maxRedirects != that.maxRedirects) return false;
+    if (decoderInitialBufferSize != that.decoderInitialBufferSize) return false;
 
     return true;
   }
@@ -891,6 +1002,7 @@ public class HttpClientOptions extends ClientOptionsBase {
     result = 31 * result + pipeliningLimit;
     result = 31 * result + (tryUseCompression ? 1 : 0);
     result = 31 * result + maxWebsocketFrameSize;
+    result = 31 * result + maxWebsocketMessageSize;
     result = 31 * result + defaultHost.hashCode();
     result = 31 * result + defaultPort;
     result = 31 * result + protocolVersion.hashCode();
@@ -901,7 +1013,9 @@ public class HttpClientOptions extends ClientOptionsBase {
     result = 31 * result + (http2ClearTextUpgrade ? 1 : 0);
     result = 31 * result + http2ConnectionWindowSize;
     result = 31 * result + (sendUnmaskedFrames ? 1 : 0);
-
+    result = 31 * result + maxRedirects;
+    result = 31 * result + decoderInitialBufferSize;
     return result;
   }
+
 }

@@ -22,8 +22,17 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.resolver.AddressResolverGroup;
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.concurrent.GenericFutureListener;
-import io.vertx.core.*;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Closeable;
+import io.vertx.core.Context;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Future;
+import io.vertx.core.Handler;
+import io.vertx.core.ServiceHelper;
+import io.vertx.core.TimeoutStream;
+import io.vertx.core.Verticle;
+import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.datagram.DatagramSocket;
 import io.vertx.core.datagram.DatagramSocketOptions;
 import io.vertx.core.datagram.impl.DatagramSocketImpl;
@@ -50,8 +59,8 @@ import io.vertx.core.net.NetClientOptions;
 import io.vertx.core.net.NetServer;
 import io.vertx.core.net.NetServerOptions;
 import io.vertx.core.net.impl.NetClientImpl;
-import io.vertx.core.net.impl.NetServerImpl;
 import io.vertx.core.net.impl.NetServerBase;
+import io.vertx.core.net.impl.NetServerImpl;
 import io.vertx.core.net.impl.ServerID;
 import io.vertx.core.shareddata.SharedData;
 import io.vertx.core.shareddata.impl.SharedDataImpl;
@@ -66,8 +75,19 @@ import io.vertx.core.spi.metrics.VertxMetrics;
 import java.io.File;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -163,6 +183,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
       this.clusterManager.join(ar -> {
         if (ar.failed()) {
           log.error("Failed to join cluster", ar.cause());
+          resultHandler.handle(Future.failedFuture(ar.cause()));
         } else {
           // Provide a memory barrier as we are setting from a different thread
           synchronized (VertxImpl.this) {
@@ -757,10 +778,16 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     final long timerID;
     final ContextImpl context;
     final java.util.concurrent.Future<?> future;
+    final AtomicBoolean cancelled;
 
     boolean cancel() {
-      metrics.timerEnded(timerID, true);
-      return future.cancel(false);
+      if (cancelled.compareAndSet(false, true)) {
+        metrics.timerEnded(timerID, true);
+        future.cancel(false);
+        return true;
+      } else {
+        return false;
+      }
     }
 
     InternalTimerHandler(long timerID, Handler<Long> runnable, boolean periodic, long delay, ContextImpl context) {
@@ -768,6 +795,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
       this.timerID = timerID;
       this.handler = runnable;
       this.periodic = periodic;
+      this.cancelled = new AtomicBoolean();
       EventLoop el = context.nettyEventLoop();
       Runnable toRun = () -> context.runOnContext(this);
       if (periodic) {
@@ -779,12 +807,14 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
     }
 
     public void handle(Void v) {
-      try {
-        handler.handle(timerID);
-      } finally {
-        if (!periodic) {
-          // Clean up after it's fired
-          cleanupNonPeriodic();
+      if (!cancelled.get()) {
+        try {
+          handler.handle(timerID);
+        } finally {
+          if (!periodic) {
+            // Clean up after it's fired
+            cleanupNonPeriodic();
+          }
         }
       }
     }
@@ -931,7 +961,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
 
   @Override
   public synchronized WorkerExecutorImpl createSharedWorkerExecutor(String name, int poolSize, long maxExecuteTime) {
-    if (maxExecuteTime < 1) {
+    if (poolSize < 1) {
       throw new IllegalArgumentException("poolSize must be > 0");
     }
     if (maxExecuteTime < 1) {
@@ -946,7 +976,7 @@ public class VertxImpl implements VertxInternal, MetricsProvider {
       sharedWorkerPool.refCount++;
     }
     ContextImpl context = getOrCreateContext();
-    WorkerExecutorImpl namedExec = new WorkerExecutorImpl(context, sharedWorkerPool, true);
+    WorkerExecutorImpl namedExec = new WorkerExecutorImpl(this, sharedWorkerPool, true);
     context.addCloseHook(namedExec);
     return namedExec;
   }

@@ -40,7 +40,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.channels.ClosedChannelException;
 
 /**
  * @author <a href="mailto:julien@julienviet.com">Julien Viet</a>
@@ -69,6 +68,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   private Handler<Void> headersEndHandler;
   private Handler<Void> bodyEndHandler;
   private Handler<Void> closeHandler;
+  private Handler<Void> endHandler;
   private long bytesWritten;
   private int numPush;
   private boolean inHandler;
@@ -128,12 +128,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   }
 
   void handleClose() {
-    if (handleEnded(true)) {
-      handleError(new ClosedChannelException());
-    }
-    if (closeHandler != null) {
-      closeHandler.handle(null);
-    }
+    handleEnded(true);
   }
 
   private void checkHeadWritten() {
@@ -219,7 +214,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   public HttpServerResponse putHeader(String name, String value) {
     synchronized (conn) {
       checkHeadWritten();
-      headers().add(name, value);
+      headers().set(name, value);
       return this;
     }
   }
@@ -228,7 +223,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   public HttpServerResponse putHeader(CharSequence name, CharSequence value) {
     synchronized (conn) {
       checkHeadWritten();
-      headers().add(name, value);
+      headers().set(name, value);
       return this;
     }
   }
@@ -237,7 +232,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   public HttpServerResponse putHeader(String name, Iterable<String> values) {
     synchronized (conn) {
       checkHeadWritten();
-      headers().add(name, values);
+      headers().set(name, values);
       return this;
     }
   }
@@ -246,7 +241,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
   public HttpServerResponse putHeader(CharSequence name, Iterable<CharSequence> values) {
     synchronized (conn) {
       checkHeadWritten();
-      headers().add(name, values);
+      headers().set(name, values);
       return this;
     }
   }
@@ -302,6 +297,15 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
     synchronized (conn) {
       checkEnded();
       closeHandler = handler;
+      return this;
+    }
+  }
+
+  @Override
+  public HttpServerResponse endHandler(@Nullable Handler<Void> handler) {
+    synchronized (conn) {
+      checkEnded();
+      endHandler = handler;
       return this;
     }
   }
@@ -431,7 +435,7 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
     }
   }
 
-  private boolean handleEnded(boolean failed) {
+  private void handleEnded(boolean failed) {
     if (!ended) {
       ended = true;
       if (metric != null) {
@@ -443,9 +447,13 @@ public class Http2ServerResponseImpl implements HttpServerResponse {
           conn.metrics().responseEnd(metric, this);
         }
       }
-      return true;
+      if (endHandler != null) {
+        conn.getContext().runOnContext(endHandler);
+      }
+      if (closeHandler != null) {
+        conn.getContext().runOnContext(closeHandler);
+      }
     }
-    return false;
   }
 
   void writabilityChanged() {

@@ -313,21 +313,7 @@
  * - logging is not performed by Vert.x logging but by Netty
  * - this is *not* a production feature
  *
- * Netty will try to locate the following logger implementations, in the following order:
- *
- * - Slf4j
- * - Log4j
- * - JDK
- *
- * The presense of the slf4j or log4j classes on the classpath is enough to pick up the logging implementation.
- *
- * The logger implementation can be forced to a specific implementation by setting Netty's internal logger implementation directly:
- *
- * [source,java]
- * ----
- * // Force logging to Log4j
- * InternalLoggerFactory.setDefaultFactory(Log4JLoggerFactory.INSTANCE);
- * ----
+ * You should read the <<netty-logging>> section.
  *
  * [[ssl]]
  * === Configuring servers and clients to work with SSL/TLS
@@ -585,6 +571,35 @@
  *
  * Keep in mind that pem configuration, the private key is not crypted.
  *
+ * ==== Self-signed certificates for testing and development purposes
+ *
+ * CAUTION: Do not use this in production settings, and note that the generated keys are very insecure.
+ *
+ * It is very often the case that self-signed certificates are required, be it for unit / integration tests or for
+ * running a development version of an application.
+ *
+ * {@link io.vertx.core.net.SelfSignedCertificate} can be used to provide self-signed PEM certificate helpers and
+ * give {@link io.vertx.core.net.KeyCertOptions} and {@link io.vertx.core.net.TrustOptions} configurations:
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#example48}
+ * ----
+ *
+ * The client can also be configured to trust all certificates:
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#example49}
+ * ----
+ *
+ * Note that self-signed certificates also work for other TCP protocols like HTTPS:
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#example50}
+ * ----
+ *
  * ==== Revoking certificate authorities
  *
  * Trust can be configured to use a certificate revocation list (CRL) for revoked certificates that should no
@@ -642,10 +657,55 @@
  * {@link examples.NetExamples#exampleSSLEngine}
  * ----
  *
- * ==== Application-Layer Protocol Negotiation
+ * ==== Server Name Indication (SNI)
  *
- * ALPN is a TLS extension for applicationl layer protocol negotitation. It is used by HTTP/2: during the TLS handshake
- * the client gives the list of application protocols it accepts and the server responds with a protocol it supports.
+ * Server Name Indication (SNI) is a TLS extension by which a client specifies an hostname attempting to connect: during
+ * the TLS handshake the clients gives a server name and the server can use it to respond with a specific certificate
+ * for this server name instead of the default deployed certificate.
+ *
+ * When SNI is active the server uses
+ *
+ * * the certificate CN or SAN DNS (Subject Alternative Name with DNS) to do an exact match, e.g `www.example.com`
+ * * the certificate CN or SAN DNS certificate to match a wildcard name, e.g `*.example.com`
+ * * otherwise the first certificate when the client does not present a server name or the presenter server name cannot be matched
+ *
+ * You can enable SNI on the server by setting {@link io.vertx.core.net.NetServerOptions#setSni(boolean)} to `true` and
+ * configured the server with multiple key/certificate pairs.
+ *
+ * Java KeyStore files or PKCS12 files can store multiple key/cert pairs out of the box.
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#configureSNIServer}
+ * ----
+ *
+ * {@link io.vertx.core.net.PemKeyCertOptions} can be configured to hold multiple entries:
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#configureSNIServerWithPems}
+ * ----
+ *
+ * The client implicitly sends the connecting host as an SNI server name for Fully Qualified Domain Name (FQDN).
+ *
+ * You can provide an explicit server name when connecting a socket
+ *
+ * [source,$lang]
+ * ----
+ * {@link examples.NetExamples#useSNIInClient}
+ * ----
+ *
+ * It can be used for different purposes:
+ *
+ * * present a server name different than the server host
+ * * present a server name while connecting to an IP
+ * * force to present a server name when using shortname
+ *
+ * ==== Application-Layer Protocol Negotiation (ALPN)
+ *
+ * Application-Layer Protocol Negotiation (ALPN) is a TLS extension for application layer protocol negotiation. It is used by
+ * HTTP/2: during the TLS handshake the client gives the list of application protocols it accepts and the server responds
+ * with a protocol it supports.
  *
  * Java 8 does not supports ALPN out of the box, so ALPN should be enabled by other means:
  *

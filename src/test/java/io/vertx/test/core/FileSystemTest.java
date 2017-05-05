@@ -19,7 +19,6 @@ package io.vertx.test.core;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.vertx.core.AsyncResult;
-import io.vertx.core.AsyncResultHandler;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.buffer.Buffer;
@@ -1562,6 +1561,24 @@ public class FileSystemTest extends VertxTestBase {
         assertFalse(drainAfterClose.get());
         testComplete();
       });
+    }));
+    await();
+  }
+
+  @Test
+  public void testResumeFileInEndHandler() throws Exception {
+    Buffer expected = TestUtils.randomBuffer(10000);
+    String fileName = "some-file.dat";
+    createFile(fileName, expected.getBytes());
+    vertx.fileSystem().open(testDir + pathSep + fileName, new OpenOptions(), onSuccess(file -> {
+      Buffer buffer = Buffer.buffer();
+      file.endHandler(v -> {
+        assertEquals(buffer.length(), expected.length());
+        file.pause();
+        file.resume();
+        complete();
+      });
+      file.handler(buffer::appendBuffer);
     }));
     await();
   }

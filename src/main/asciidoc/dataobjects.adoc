@@ -65,6 +65,11 @@ Set the query timeout in milliseconds, i.e the amount of time after a query is c
 +++
 Set the DNS queries <i>Recursion Desired</i> flag value.
 +++
+|[[rotateServers]]`rotateServers`|`Boolean`|
++++
+Set to <code>true</code> to enable round-robin selection of the dns server to use. It spreads the query load
+ among the servers and avoids all lookup to hit the first server of the list.
++++
 |[[searchDomains]]`searchDomains`|`Array of String`|
 +++
 Set the lists of DNS search domains.
@@ -239,7 +244,7 @@ Set whether all server certificates should be trusted
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++
@@ -550,7 +555,7 @@ Set whether all server certificates should be trusted.
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++
@@ -663,6 +668,10 @@ Add a CRL path
 +++
 Add a CRL value
 +++
+|[[decoderInitialBufferSize]]`decoderInitialBufferSize`|`Number (int)`|
++++
+set to <code>initialBufferSizeHttpDecoder</code> the initial buffer of the HttpDecoder.
++++
 |[[defaultHost]]`defaultHost`|`String`|
 +++
 Set the default host name to be used by this client in requests if none is provided when making the request.
@@ -678,6 +687,11 @@ Add an enabled cipher suite, appended to the ordered suites.
 |[[enabledSecureTransportProtocols]]`enabledSecureTransportProtocols`|`Array of String`|
 +++
 Add an enabled SSL/TLS protocols, appended to the ordered protocols.
++++
+|[[forceSni]]`forceSni`|`Boolean`|
++++
+By default, the server name is only sent for Fully Qualified Domain Name (FQDN), setting
+ this property to <code>true</code> forces the server name to be always sent.
 +++
 |[[http2ClearTextUpgrade]]`http2ClearTextUpgrade`|`Boolean`|
 +++
@@ -748,6 +762,10 @@ Set the maximum length of the initial line for HTTP/1.x (e.g. <code>"HTTP/1.1 20
 +++
 Set the maximum pool size for connections
 +++
+|[[maxRedirects]]`maxRedirects`|`Number (int)`|
++++
+Set to <code>maxRedirects</code> the maximum number of redirection a request can follow.
++++
 |[[maxWaitQueueSize]]`maxWaitQueueSize`|`Number (int)`|
 +++
 Set the maximum requests allowed in the wait queue, any requests beyond the max size will result in
@@ -756,6 +774,10 @@ Set the maximum requests allowed in the wait queue, any requests beyond the max 
 |[[maxWebsocketFrameSize]]`maxWebsocketFrameSize`|`Number (int)`|
 +++
 Set the max websocket frame size
++++
+|[[maxWebsocketMessageSize]]`maxWebsocketMessageSize`|`Number (int)`|
++++
+Set the max websocket message size
 +++
 |[[metricsName]]`metricsName`|`String`|
 +++
@@ -839,7 +861,7 @@ Set whether all server certificates should be trusted
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[tryUseCompression]]`tryUseCompression`|`Boolean`|
 +++
@@ -908,10 +930,10 @@ This method allows to set the compression level to be used in http1.x/2 response
  
  While one can think that best value is always the maximum compression ratio, 
  there's a trade-off to consider: the most compressed level requires the most
- computatinal work to compress/decompress data, e.g. more dictionary lookups and loops.
+ computational work to compress/decompress data, e.g. more dictionary lookups and loops.
  
  E.g. you have it set fairly high on a high-volume website, you may experience performance degradation 
- and latency on resource serving due to CPU overload, and, however - as the comptational work is required also client side 
+ and latency on resource serving due to CPU overload, and, however - as the computational work is required also client side
  while decompressing - setting an higher compression level can result in an overall higher page load time
  especially nowadays when many clients are handled mobile devices with a low CPU profile.
  
@@ -929,6 +951,10 @@ Add a CRL path
 |[[crlValues]]`crlValues`|`Array of Buffer`|
 +++
 Add a CRL value
++++
+|[[decoderInitialBufferSize]]`decoderInitialBufferSize`|`Number (int)`|
++++
+Set the initial buffer size for the HTTP decoder
 +++
 |[[decompressionSupported]]`decompressionSupported`|`Boolean`|
 +++
@@ -992,6 +1018,10 @@ Set the maximum length of the initial line for HTTP/1.x (e.g. <code>"GET / HTTP/
 +++
 Set the maximum websocket frames size
 +++
+|[[maxWebsocketMessageSize]]`maxWebsocketMessageSize`|`Number (int)`|
++++
+Set the maximum websocket message size
++++
 |[[openSslEngineOptions]]`openSslEngineOptions`|`link:dataobjects.html#OpenSSLEngineOptions[OpenSSLEngineOptions]`|-
 |[[pemKeyCertOptions]]`pemKeyCertOptions`|`link:dataobjects.html#PemKeyCertOptions[PemKeyCertOptions]`|
 +++
@@ -1025,6 +1055,10 @@ Set the value of reuse address
 +++
 Set the TCP send buffer size
 +++
+|[[sni]]`sni`|`Boolean`|
++++
+Set whether the server supports Server Name Indiciation
++++
 |[[soLinger]]`soLinger`|`Number (int)`|
 +++
 Set whether SO_linger keep alive is enabled
@@ -1047,7 +1081,7 @@ Set the value of traffic class
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++
@@ -1272,7 +1306,7 @@ Set whether all server certificates should be trusted
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++
@@ -1375,6 +1409,10 @@ Set the value of reuse address
 +++
 Set the TCP send buffer size
 +++
+|[[sni]]`sni`|`Boolean`|
++++
+Set whether the server supports Server Name Indiciation
++++
 |[[soLinger]]`soLinger`|`Number (int)`|
 +++
 Set whether SO_linger keep alive is enabled
@@ -1397,7 +1435,7 @@ Set the value of traffic class
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++
@@ -1600,11 +1638,11 @@ Sets whether or not this option can receive a value.
 == PemKeyCertOptions
 
 ++++
- Key store options configuring a private key and its certificate based on
+ Key store options configuring a list of private key and its certificate based on
  <i>Privacy-enhanced Electronic Email</i> (PEM) files.
  <p>
 
- The key file must contain a <b>non encrypted</b> private key in <b>PKCS8</b> format wrapped in a PEM
+ A key file must contain a <b>non encrypted</b> private key in <b>PKCS8</b> format wrapped in a PEM
  block, for example:
  <p>
 
@@ -1616,7 +1654,7 @@ Sets whether or not this option can receive a value.
  -----END PRIVATE KEY-----
  </pre><p>
 
- The certificate file must contain an X.509 certificate wrapped in a PEM block, for example:
+ A certificate file must contain an X.509 certificate wrapped in a PEM block, for example:
  <p>
 
  <pre>
@@ -1627,7 +1665,7 @@ Sets whether or not this option can receive a value.
  -----END CERTIFICATE-----
  </pre>
 
- The key and certificate can either be loaded by Vert.x from the filesystem:
+ Keys and certificates can either be loaded by Vert.x from the filesystem:
  <p>
  <pre>
  HttpServerOptions options = new HttpServerOptions();
@@ -1641,6 +1679,15 @@ Sets whether or not this option can receive a value.
  Buffer cert = vertx.fileSystem().readFileSync("/mycert.pem");
  options.setPemKeyCertOptions(new PemKeyCertOptions().setKeyValue(key).setCertValue(cert));
  </pre>
+
+ Several key/certificate pairs can be used:
+ <p>
+ <pre>
+ HttpServerOptions options = new HttpServerOptions();
+ options.setPemKeyCertOptions(new PemKeyCertOptions()
+    .addKeyPath("/mykey1.pem").addCertPath("/mycert1.pem")
+    .addKeyPath("/mykey2.pem").addCertPath("/mycert2.pem"));
+ </pre>
 ++++
 '''
 
@@ -1650,19 +1697,35 @@ Sets whether or not this option can receive a value.
 ^|Name | Type ^| Description
 |[[certPath]]`certPath`|`String`|
 +++
-Set the path to the certificate
+Set the path of the first certificate, replacing the previous certificates paths
++++
+|[[certPaths]]`certPaths`|`Array of String`|
++++
+Set all the paths to the certificates files
 +++
 |[[certValue]]`certValue`|`Buffer`|
 +++
-Set the certificate as a buffer
+Set the first certificate as a buffer, replacing the previous certificates buffers
++++
+|[[certValues]]`certValues`|`Array of Buffer`|
++++
+Set all the certificates as a list of buffer
 +++
 |[[keyPath]]`keyPath`|`String`|
 +++
-Set the path to the key file
+Set the path of the first key file, replacing the keys paths
++++
+|[[keyPaths]]`keyPaths`|`Array of String`|
++++
+Set all the paths to the keys files
 +++
 |[[keyValue]]`keyValue`|`Buffer`|
 +++
-Set the key a a buffer
+Set the first key a a buffer, replacing the previous keys buffers
++++
+|[[keyValues]]`keyValues`|`Array of Buffer`|
++++
+Set all the keys as a list of buffer
 +++
 |===
 
@@ -1796,6 +1859,36 @@ Set proxy username.
 +++
 |===
 
+[[RequestOptions]]
+== RequestOptions
+
+++++
+ Options describing how an link will make connect to make a request.
+++++
+'''
+
+[cols=">25%,^25%,50%"]
+[frame="topbot"]
+|===
+^|Name | Type ^| Description
+|[[host]]`host`|`String`|
++++
+Set the host name to be used by the client request.
++++
+|[[port]]`port`|`Number (int)`|
++++
+Set the port to be used by the client request.
++++
+|[[ssl]]`ssl`|`Boolean`|
++++
+Set whether SSL/TLS is enabled
++++
+|[[uri]]`uri`|`String`|
++++
+Set the request relative URI
++++
+|===
+
 [[TCPSSLOptions]]
 == TCPSSLOptions
 
@@ -1889,7 +1982,7 @@ Set the value of traffic class
 +++
 |[[trustStoreOptions]]`trustStoreOptions`|`link:dataobjects.html#JksOptions[JksOptions]`|
 +++
-Set the trust options in jks format, aka Java trustore
+Set the trust options in jks format, aka Java truststore
 +++
 |[[useAlpn]]`useAlpn`|`Boolean`|
 +++

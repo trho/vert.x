@@ -101,9 +101,15 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
   }
 
   @Override
+  public synchronized void handleClosed() {
+    http2Pool.discard(this);
+    super.handleClosed();
+  }
+
+  @Override
   public boolean isValid() {
     Http2Connection conn = handler.connection();
-    return !conn.goAwaySent() && !conn.goAwayReceived();
+    return !isClosed() && !conn.goAwaySent() && !conn.goAwayReceived();
   }
 
   @Override
@@ -129,7 +135,8 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
           String host = headers.authority() != null ? headers.authority().toString() : null;
           MultiMap headersMap = new Http2HeadersAdaptor(headers);
           Http2Stream promisedStream = handler.connection().stream(promisedStreamId);
-          HttpClientRequestPushPromise pushReq = new HttpClientRequestPushPromise(this, promisedStream, http2Pool.client, method, rawMethod, uri, host, headersMap);
+          int port = remoteAddress().port();
+          HttpClientRequestPushPromise pushReq = new HttpClientRequestPushPromise(this, promisedStream, http2Pool.client, isSsl(), method, rawMethod, uri, host, port, headersMap);
           if (metrics.isEnabled()) {
             pushReq.metric(metrics.responsePushed(queueMetric, metric(), localAddress(), remoteAddress(), pushReq));
           }
@@ -171,7 +178,7 @@ class Http2ClientConnection extends Http2ConnectionBase implements HttpClientCon
     @Override
     void handleEnd(MultiMap trailers) {
       if (conn.metrics.isEnabled()) {
-        if (request.exceptionOccurred) {
+        if (request.exceptionOccurred != null) {
           conn.metrics.requestReset(request.metric());
         } else {
           conn.metrics.responseEnd(request.metric(), response);

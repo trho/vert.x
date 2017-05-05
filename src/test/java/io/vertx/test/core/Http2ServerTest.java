@@ -20,7 +20,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
@@ -216,8 +215,8 @@ public class Http2ServerTest extends Http2TestBase {
       return new ChannelInitializer<Channel>() {
         @Override
         protected void initChannel(Channel ch) throws Exception {
-          SSLHelper sslHelper = new SSLHelper(new HttpClientOptions().setUseAlpn(true), null, Trust.SERVER_JKS.get());
-          SslHandler sslHandler = sslHelper.setApplicationProtocols(Arrays.asList(HttpVersion.HTTP_2, HttpVersion.HTTP_1_1)).createSslHandler((VertxInternal) vertx, host, port);
+          SSLHelper sslHelper = new SSLHelper(new HttpClientOptions().setUseAlpn(true).setSsl(true), null, Trust.SERVER_JKS.get());
+          SslHandler sslHandler = new SslHandler(sslHelper.setApplicationProtocols(Arrays.asList(HttpVersion.HTTP_2, HttpVersion.HTTP_1_1)).createEngine((VertxInternal) vertx, host, port));
           ch.pipeline().addLast(sslHandler);
           ch.pipeline().addLast(new ApplicationProtocolNegotiationHandler("whatever") {
             @Override
@@ -1048,7 +1047,7 @@ public class Http2ServerTest extends Http2TestBase {
     server.requestHandler(req -> {
       HttpConnection conn = req.connection();
       conn.closeHandler(v -> {
-        assertOnIOContext(ctx);
+        assertSame(ctx, Vertx.currentContext());
         testComplete();
       });
       req.response().putHeader("Content-Type", "text/plain").end();
@@ -1497,7 +1496,7 @@ public class Http2ServerTest extends Http2TestBase {
 
   @Test
   public void testStreamError() throws Exception {
-    waitFor(4);
+    waitFor(5);
     Future<Void> when = Future.future();
     Context ctx = vertx.getOrCreateContext();
     server.requestHandler(req -> {
@@ -1507,7 +1506,14 @@ public class Http2ServerTest extends Http2TestBase {
         complete();
       });
       req.response().exceptionHandler(err -> {
-        // Called twice : reset + close
+        assertEquals(ctx, Vertx.currentContext());
+        complete();
+      });
+      req.response().closeHandler(v -> {
+        assertEquals(ctx, Vertx.currentContext());
+        complete();
+      });
+      req.response().endHandler(v -> {
         assertEquals(ctx, Vertx.currentContext());
         complete();
       });
@@ -1540,7 +1546,7 @@ public class Http2ServerTest extends Http2TestBase {
   @Test
   public void testPromiseStreamError() throws Exception {
     Context ctx = vertx.getOrCreateContext();
-    waitFor(2);
+    waitFor(3);
     Future<Void> when = Future.future();
     server.requestHandler(req -> {
       req.response().push(HttpMethod.GET, "/wibble", ar -> {
@@ -1549,6 +1555,14 @@ public class Http2ServerTest extends Http2TestBase {
         when.complete();
         HttpServerResponse resp = ar.result();
         resp.exceptionHandler(err -> {
+          assertSame(ctx, Vertx.currentContext());
+          complete();
+        });
+        resp.closeHandler(v -> {
+          assertSame(ctx, Vertx.currentContext());
+          complete();
+        });
+        resp.endHandler(v -> {
           assertSame(ctx, Vertx.currentContext());
           complete();
         });
@@ -1580,7 +1594,7 @@ public class Http2ServerTest extends Http2TestBase {
   @Test
   public void testConnectionDecodeError() throws Exception {
     Context ctx = vertx.getOrCreateContext();
-    waitFor(5);
+    waitFor(6);
     Future<Void> when = Future.future();
     server.requestHandler(req -> {
       req.exceptionHandler(err -> {
@@ -1589,7 +1603,17 @@ public class Http2ServerTest extends Http2TestBase {
         complete();
       });
       req.response().exceptionHandler(err -> {
-        // Called twice : reset + close
+        // Called once : reset
+        assertSame(ctx, Vertx.currentContext());
+        complete();
+      });
+      req.response().closeHandler(v -> {
+        // Called once : close
+        assertSame(ctx, Vertx.currentContext());
+        complete();
+      });
+      req.response().endHandler(v -> {
+        // Called once : close
         assertSame(ctx, Vertx.currentContext());
         complete();
       });
@@ -1670,7 +1694,10 @@ public class Http2ServerTest extends Http2TestBase {
         req.exceptionHandler(err -> {
           fail();
         });
-        req.response().exceptionHandler(err -> {
+        req.response().closeHandler(err -> {
+          closed.incrementAndGet();
+        });
+        req.response().endHandler(err -> {
           closed.incrementAndGet();
         });
       } else {
@@ -1678,12 +1705,15 @@ public class Http2ServerTest extends Http2TestBase {
         req.exceptionHandler(err -> {
           closed.incrementAndGet();
         });
-        req.response().exceptionHandler(err -> {
+        req.response().closeHandler(err -> {
+          closed.incrementAndGet();
+        });
+        req.response().endHandler(err -> {
           closed.incrementAndGet();
         });
         HttpConnection conn = req.connection();
         conn.closeHandler(v -> {
-          assertEquals(3, closed.get());
+          assertEquals(5, closed.get());
           assertEquals(1, status.get());
           complete();
         });
@@ -1708,7 +1738,10 @@ public class Http2ServerTest extends Http2TestBase {
         req.exceptionHandler(err -> {
           fail();
         });
-        req.response().exceptionHandler(err -> {
+        req.response().closeHandler(err -> {
+          closed.incrementAndGet();
+        });
+        req.response().endHandler(err -> {
           closed.incrementAndGet();
         });
       } else {
@@ -1716,12 +1749,15 @@ public class Http2ServerTest extends Http2TestBase {
         req.exceptionHandler(err -> {
           fail();
         });
-        req.response().exceptionHandler(err -> {
+        req.response().closeHandler(err -> {
+          closed.incrementAndGet();
+        });
+        req.response().endHandler(err -> {
           closed.incrementAndGet();
         });
         HttpConnection conn = req.connection();
         conn.closeHandler(v -> {
-          assertEquals(2, closed.get());
+          assertEquals(4, closed.get());
           assertEquals(1, status.getAndIncrement());
           complete();
         });
@@ -1982,6 +2018,7 @@ public class Http2ServerTest extends Http2TestBase {
       assertIllegalStateException(() -> resp.sendFile("the-file.txt"));
       assertIllegalStateException(() -> resp.reset(0));
       assertIllegalStateException(() -> resp.closeHandler(v -> {}));
+      assertIllegalStateException(() -> resp.endHandler(v -> {}));
       assertIllegalStateException(() -> resp.drainHandler(v -> {}));
       assertIllegalStateException(() -> resp.exceptionHandler(err -> {}));
       assertIllegalStateException(resp::writeQueueFull);
@@ -2552,6 +2589,7 @@ public class Http2ServerTest extends Http2TestBase {
     startServer();
     client = vertx.createHttpClient(clientOptions.
         setUseAlpn(false).
+        setSsl(false).
         setInitialSettings(new io.vertx.core.http.Http2Settings().setMaxConcurrentStreams(10000)));
     HttpClientRequest req = client.get(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
     req.handler(resp -> {
@@ -2579,7 +2617,7 @@ public class Http2ServerTest extends Http2TestBase {
       req.response().end();
     });
     startServer();
-    client = vertx.createHttpClient(clientOptions.setUseAlpn(false));
+    client = vertx.createHttpClient(clientOptions.setUseAlpn(false).setSsl(false));
     HttpClientRequest req = client.get(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, "/somepath");
     req.handler(resp -> {
       assertEquals(HttpVersion.HTTP_2, resp.version());
@@ -2645,7 +2683,7 @@ public class Http2ServerTest extends Http2TestBase {
       fail();
     });
     startServer(context);
-    client = vertx.createHttpClient(clientOptions.setProtocolVersion(HttpVersion.HTTP_1_1).setUseAlpn(false));
+    client = vertx.createHttpClient(clientOptions.setProtocolVersion(HttpVersion.HTTP_1_1).setUseAlpn(false).setSsl(false));
     doRequest.apply(client).handler(resp -> {
       assertEquals(400, resp.statusCode());
       assertEquals(HttpVersion.HTTP_1_1, resp.version());
@@ -2664,11 +2702,10 @@ public class Http2ServerTest extends Http2TestBase {
         assertTrue(err instanceof ClosedChannelException);
         complete();
       });
-      req.response().exceptionHandler(err -> {
-        assertTrue(err instanceof ClosedChannelException);
+      req.response().closeHandler(v -> {
         complete();
       });
-      req.response().closeHandler(v -> {
+      req.response().endHandler(v -> {
         complete();
       });
       req.connection().closeHandler(v -> {

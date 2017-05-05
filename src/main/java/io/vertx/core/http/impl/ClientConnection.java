@@ -181,6 +181,8 @@ class ClientConnection extends ConnectionBase implements HttpClientConnection, H
         if (msg instanceof HttpResponse) {
           HttpResponse resp = (HttpResponse) msg;
           if (resp.getStatus().code() != 101) {
+            handshaker = null;
+            close();
             handleException(new WebSocketHandshakeException("Websocket connection attempt returned HTTP status code " + resp.getStatus().code()));
             return;
           }
@@ -238,7 +240,8 @@ class ClientConnection extends ConnectionBase implements HttpClientConnection, H
       // Need to set context before constructor is called as writehandler registration needs this
       ContextImpl.setContext(context);
       WebSocketImpl webSocket = new WebSocketImpl(vertx, ClientConnection.this, supportsContinuation,
-                                                  client.getOptions().getMaxWebsocketFrameSize());
+                                                  client.getOptions().getMaxWebsocketFrameSize(),
+                                                  client.getOptions().getMaxWebsocketMessageSize());
       ws = webSocket;
       handshaker.finishHandshake(channel, response);
       context.executeFromIO(() -> {
@@ -347,7 +350,7 @@ class ClientConnection extends ConnectionBase implements HttpClientConnection, H
     if (metrics.isEnabled()) {
       HttpClientRequestBase req = currentResponse.request();
       Object reqMetric = req.metric();
-      if (req.exceptionOccurred) {
+      if (req.exceptionOccurred != null) {
         metrics.requestReset(reqMetric);
       } else {
         metrics.responseEnd(reqMetric, currentResponse);
@@ -615,7 +618,7 @@ class ClientConnection extends ConnectionBase implements HttpClientConnection, H
       }
 
       @Override
-      protected void handleMsgReceived(Object msg) {
+      protected void handleMsgReceived(NetSocketImpl conn, Object msg) {
         ByteBuf buf = (ByteBuf) msg;
         conn.handleDataReceived(Buffer.buffer(buf));
       }
