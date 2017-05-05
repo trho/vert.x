@@ -17,6 +17,8 @@
 package io.vertx.core.http.impl;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.CompositeByteBuf;
+import io.netty.buffer.Unpooled;
 import io.vertx.core.Handler;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.eventbus.Message;
@@ -58,6 +60,7 @@ public abstract class WebSocketImplBase<S extends WebSocketBase> implements WebS
   private Handler<Void> endHandler;
   protected final ConnectionBase conn;
   protected boolean closed;
+  private CompositeByteBuf wsFramesCollector;
 
   WebSocketImplBase(VertxInternal vertx, ConnectionBase conn, boolean supportsContinuation,
                               int maxWebSocketFrameSize, int maxWebSocketMessageSize) {
@@ -71,6 +74,7 @@ public abstract class WebSocketImplBase<S extends WebSocketBase> implements WebS
     textHandlerRegistration = vertx.eventBus().<String>localConsumer(textHandlerID).handler(textHandler);
     this.maxWebSocketFrameSize = maxWebSocketFrameSize;
     this.maxWebSocketMessageSize = maxWebSocketMessageSize;
+    wsFramesCollector = Unpooled.compositeBuffer();
   }
 
   public String binaryHandlerID() {
@@ -212,8 +216,22 @@ public abstract class WebSocketImplBase<S extends WebSocketBase> implements WebS
     synchronized (conn) {
       conn.reportBytesRead(frame.binaryData().length());
       if (dataHandler != null) {
-        Buffer buff = Buffer.buffer(frame.getBinaryData());
-        dataHandler.handle(buff);
+        switch (frame.type()) {
+          case PING:
+          case PONG:
+          case CLOSE:
+          case TEXT:
+          case BINARY:
+            wsFramesCollector.clear();
+            wsFramesCollector.removeComponents(0, wsFramesCollector.numComponents());
+          case CONTINUATION:
+            wsFramesCollector.addComponent(frame.getBinaryData());
+        }
+        if (frame.isFinal()) {
+          wsFramesCollector.writerIndex(wsFramesCollector.capacity());
+          Buffer buff = Buffer.buffer(wsFramesCollector);
+          dataHandler.handle(buff);
+        }
       }
 
       if (frameHandler != null) {
