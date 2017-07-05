@@ -21,6 +21,7 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Context;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
+import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxException;
 import io.vertx.core.buffer.Buffer;
@@ -30,6 +31,7 @@ import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.http.HttpClientRequest;
 import io.vertx.core.http.HttpConnection;
+import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServer;
 import io.vertx.core.http.HttpServerOptions;
@@ -62,13 +64,16 @@ import io.vertx.core.net.SSLEngineOptions;
 import io.vertx.core.net.TrustOptions;
 import io.vertx.core.parsetools.RecordParser;
 import io.vertx.core.streams.Pump;
+import org.junit.Ignore;
 import org.junit.Test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
@@ -83,7 +88,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static io.vertx.test.core.TestUtils.*;
 
@@ -2790,6 +2797,31 @@ public class Http1xTest extends HttpTest {
   }
 
   @Test
+  public void testHttpProxyFtpRequest() throws Exception {
+    startProxy(null, ProxyType.HTTP);
+    client.close();
+    client = vertx.createHttpClient(new HttpClientOptions()
+        .setProxyOptions(new ProxyOptions().setType(ProxyType.HTTP).setHost("localhost").setPort(proxy.getPort())));
+    final String url = "ftp://ftp.gnu.org/gnu/";
+    proxy.setForceUri("http://localhost:8080/");
+    HttpClientRequest clientReq = client.getAbs(url);
+    server.requestHandler(req -> {
+      req.response().end();
+    });
+
+    server.listen(onSuccess(s -> {
+      clientReq.handler(resp -> {
+        assertEquals(200, resp.statusCode());
+        assertEquals("request did sent the expected url", url, proxy.getLastUri());
+        testComplete();
+      });
+      clientReq.exceptionHandler(this::fail);
+      clientReq.end();
+    }));
+    await();
+  }
+
+  @Test
   public void testHttpSocksProxyRequest() throws Exception {
     startProxy(null, ProxyType.SOCKS5);
 
@@ -3517,6 +3549,39 @@ public class Http1xTest extends HttpTest {
     testPerPeerPooling(i -> client.get(80, "host" + i, "/somepath"));
   }
 
+  @Test
+  public void testNoNPEWhenClientBreaksConnection() throws Exception {
+
+    final File f = setupFile("file.pdf", TestUtils.randomUnicodeString(1000000));
+
+    server.requestHandler(req -> {
+      req.connection().closeHandler(v -> {
+        req.response().putHeader(HttpHeaders.CONTENT_TYPE, "application/pdf");
+
+        try {
+          req.response().sendFile(f.getAbsolutePath(), event -> {
+            if (event.failed()) {
+              testComplete();
+            } else {
+              fail("It should not reach this point");
+            }
+          });
+        } catch (NullPointerException e) {
+          // this was the bug reported with issues/issue-80
+          fail("It should not throw NPE");
+        }
+      });
+    });
+
+    server.listen(onSuccess(server -> {
+      vertx.createNetClient().connect(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, socket -> {
+        socket.result().write("GET / HTTP/1.1\r\n\r\n").close();
+      });
+    }));
+
+    await();
+  }
+
   private void testPerPeerPooling(Function<Integer, HttpClientRequest> requestProvider) throws Exception {
     // Even though we use the same server host, we pool per peer host
     waitFor(2);
@@ -3549,6 +3614,102 @@ public class Http1xTest extends HttpTest {
         req.end();
       }
     }
+    await();
+  }
+
+  @Test
+  public void testHeadMDontAutomaticallySetContentHeaders() throws Exception {
+    testHeadMustNoAutomaticallySetContentHeaders(MultiMap.caseInsensitiveMultiMap(), respHeaders -> {
+      assertFalse(respHeaders.contains("Content-Length"));
+      assertFalse(respHeaders.contains("Transfer-Encoding"));
+    });
+  }
+
+  @Test
+  public void testHeadMustNotSendBodyWhenContentLengthSet() throws Exception {
+    MultiMap reqHeaders = MultiMap.caseInsensitiveMultiMap();
+    reqHeaders.set("Content-Length", "10");
+    testHeadMustNoAutomaticallySetContentHeaders(reqHeaders, respHeaders -> {
+      assertEquals(respHeaders.get("Content-Length"), " 10");
+      assertFalse(respHeaders.contains("Transfer-Encoding"));
+    });
+  }
+
+  @Ignore("See https://github.com/netty/netty/issues/6761")
+  @Test
+  public void testHeadMustNotSendBodyWhenTransferEncodingSet() throws Exception {
+    MultiMap reqHeaders = MultiMap.caseInsensitiveMultiMap();
+    reqHeaders.set("Transfer-Encoding", "chunked");
+    testHeadMustNoAutomaticallySetContentHeaders(reqHeaders, respHeaders -> {
+      assertEquals(respHeaders.get("Content-Length"), "10");
+      assertFalse(respHeaders.contains("Transfer-Encoding"));
+    });
+  }
+
+  private void testHeadMustNoAutomaticallySetContentHeaders(MultiMap reqHeaders, Consumer<MultiMap> headersChecker) throws Exception {
+    server.requestHandler(req -> {
+      HttpServerResponse resp = req.response();
+      resp.headers().addAll(reqHeaders);
+      resp.end();
+    });
+    startServer();
+    NetClient client = vertx.createNetClient();
+    client.connect(DEFAULT_HTTP_PORT, DEFAULT_HTTPS_HOST, onSuccess(so -> {
+      so.write(
+          "HEAD / HTTP/1.1\r\n" +
+          "Connection: close\r\n" +
+          "\r\n");
+      Buffer buff = Buffer.buffer();
+      so.handler(buff::appendBuffer);
+      so.endHandler(v -> {
+        String content = buff.toString();
+        int idx = content.indexOf("\r\n\r\n");
+        LinkedList<String> records = new LinkedList<String>(Arrays.asList(content.substring(0, idx).split("\\r\\n")));
+        assertEquals("HTTP/1.1 200 OK", records.removeFirst());
+        assertEquals("", content.substring(idx + 4));
+        MultiMap respHeaders = MultiMap.caseInsensitiveMultiMap();
+        records.forEach(record -> {
+          int index = record.indexOf(":");
+          String value = record.substring(0, index);
+          respHeaders.add(value, record.substring(index + 1));
+        });
+        headersChecker.accept(respHeaders);
+        testComplete();
+      });
+    }));
+    await();
+  }
+
+  @Test
+  public void testUnknownContentLengthIsSetToZeroWithHTTP_1_0() throws Exception {
+    server.requestHandler(req -> {
+      req.response().write("Some-String").end();
+    });
+    startServer();
+    client.close();
+    client = vertx.createHttpClient(new HttpClientOptions().setProtocolVersion(HttpVersion.HTTP_1_0));
+    client.getNow(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, DEFAULT_TEST_URI, resp -> {
+      assertNull(resp.getHeader("Content-Length"));
+      testComplete();
+    });
+    await();
+  }
+
+  @Test
+  public void testPartialH2CAmbiguousRequest() throws Exception {
+    server.requestHandler(req -> {
+      assertEquals("POST", req.rawMethod());
+      testComplete();
+    });
+    Buffer fullRequest = Buffer.buffer("POST /whatever HTTP/1.1\r\n\r\n");
+    startServer();
+    NetClient client = vertx.createNetClient();
+    client.connect(DEFAULT_HTTP_PORT, DEFAULT_HTTP_HOST, onSuccess(so -> {
+      so.write(fullRequest.slice(0, 1));
+      vertx.setTimer(1000, id -> {
+        so.write(fullRequest.slice(1, fullRequest.length()));
+      });
+    }));
     await();
   }
 }

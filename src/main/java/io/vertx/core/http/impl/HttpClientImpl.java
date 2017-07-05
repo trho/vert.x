@@ -39,9 +39,9 @@ import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.net.ProxyOptions;
 import io.vertx.core.net.ProxyType;
 import io.vertx.core.net.impl.SSLHelper;
-import io.vertx.core.spi.metrics.HttpClientMetrics;
 import io.vertx.core.spi.metrics.Metrics;
 import io.vertx.core.spi.metrics.MetricsProvider;
+import io.vertx.core.spi.metrics.VertxMetrics;
 import io.vertx.core.streams.ReadStream;
 
 import java.net.MalformedURLException;
@@ -146,8 +146,8 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
       }
       creatingContext.addCloseHook(closeHook);
     }
-    HttpClientMetrics metrics = vertx.metricsSPI().createMetrics(this, options);
-    connectionManager = new ConnectionManager(this, metrics);
+    VertxMetrics metrics = vertx.metricsSPI();
+    connectionManager = new ConnectionManager(this, metrics != null ? metrics.createMetrics(this, options) : null);
     proxyType = options.getProxyOptions() != null ? options.getProxyOptions().getType() : null;
   }
 
@@ -443,18 +443,25 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
     Boolean ssl = false;
     int port = url.getPort();
     String protocol = url.getProtocol();
-    char chend = protocol.charAt(protocol.length() - 1);
-    if (chend == 'p') {
+    if ("ftp".equals(protocol)) {
       if (port == -1) {
-        port = 80;
+        port = 21;
       }
-    } else if (chend == 's'){
-      ssl = true;
-      if (port == -1) {
-        port = 443;
+    } else {
+      char chend = protocol.charAt(protocol.length() - 1);
+      if (chend == 'p') {
+        if (port == -1) {
+          port = 80;
+        }
+      } else if (chend == 's'){
+        ssl = true;
+        if (port == -1) {
+          port = 443;
+        }
       }
     }
-    return createRequest(method, url.getHost(), port, ssl, url.getFile(), null);
+    // if we do not know the protocol, the port still may be -1, we will handle that below
+    return createRequest(method, protocol, url.getHost(), port, ssl, url.getFile(), null);
   }
 
   @Override
@@ -852,7 +859,7 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
 
   @Override
   public boolean isMetricsEnabled() {
-    return getMetrics().isEnabled();
+    return getMetrics() != null;
   }
 
   @Override
@@ -919,16 +926,12 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
     return sslHelper;
   }
 
-  HttpClientMetrics httpClientMetrics() {
-    return connectionManager.metrics();
-  }
-
   private URL parseUrl(String surl) {
     // Note - parsing a URL this way is slower than specifying host, port and relativeURI
     try {
       return new URL(surl);
     } catch (MalformedURLException e) {
-      throw new VertxException("Invalid url: " + surl);
+      throw new VertxException("Invalid url: " + surl, e);
     }
   }
 
@@ -938,7 +941,12 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
   }
 
   private HttpClientRequest createRequest(HttpMethod method, String host, int port, Boolean ssl, String relativeURI, MultiMap headers) {
+    return createRequest(method, ssl==null || ssl==false ? "http" : "https", host, port, ssl, relativeURI, headers);
+  }
+
+  private HttpClientRequest createRequest(HttpMethod method, String protocol, String host, int port, Boolean ssl, String relativeURI, MultiMap headers) {
     Objects.requireNonNull(method, "no null method accepted");
+    Objects.requireNonNull(protocol, "no null protocol accepted");
     Objects.requireNonNull(host, "no null host accepted");
     Objects.requireNonNull(relativeURI, "no null relativeURI accepted");
     checkClosed();
@@ -946,7 +954,9 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
     boolean useSSL = ssl != null ? ssl : options.isSsl();
     boolean useProxy = !useSSL && proxyType == ProxyType.HTTP;
     if (useProxy) {
-      relativeURI = "http://" + host + (port != 80 ? ":" + port : "") + relativeURI;
+      final int defaultPort = protocol.equals("ftp") ? 21 : 80;
+      final String addPort = (port != -1 && port != defaultPort) ? (":" + port) : "";
+      relativeURI = protocol + "://" + host + addPort + relativeURI;
       ProxyOptions proxyOptions = options.getProxyOptions();
       if (proxyOptions.getUsername() != null && proxyOptions.getPassword() != null) {
         if (headers == null) {
@@ -957,7 +967,7 @@ public class HttpClientImpl implements HttpClient, MetricsProvider {
       }
       req = new HttpClientRequestImpl(this, useSSL, method, proxyOptions.getHost(), proxyOptions.getPort(),
           relativeURI, vertx);
-      req.setHost(host + (port != 80 ? ":" + port : ""));
+      req.setHost(host + addPort);
     } else {
       req = new HttpClientRequestImpl(this, useSSL, method, host, port, relativeURI, vertx);
     }
