@@ -23,7 +23,7 @@
   </parent>
 
   <artifactId>vertx-core</artifactId>
-  <version>3.4.2</version>
+  <version>3.4.2-TRHO</version>
 
   <name>Vert.x Core</name>
 
